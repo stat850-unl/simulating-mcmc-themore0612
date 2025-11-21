@@ -1,25 +1,20 @@
 ---
 title: "Monte Carlo Simulation"
-author: "Your name"
+author: "Zora Zhang"
 format: html
 ---
 
-
 (Adapted from Monte Carlo Simulation: An Introduction for Engineers and Scientists by Alan Stevens, Chapter 11)
-
 Polymers are large molecules comprised of a large number of repeated units (monomers) linked end to end. 
 There are naturally occurring polymers, such as cellulose, and artificial polymers, such as polythene (polyethylene). 
 A simple model of a polymer assumes its linked units are each oriented completely randomly with respect to each other. 
 This results in a nearly infinite number of configurations.
-
 Suppose the goal is to estimate the straight-line distance between the start and end of the polymer chain. 
 The theoretical probability density function for this distance is $$P(R) = 4\pi R^2\left(\frac{3}{2\pi\langle r^2\rangle}\right)^{3/2}\exp\left(-\frac{3R^2}{2\langle r^2\rangle}\right), $$
 where $R$ is the end-to-end distance, and the mean square position of the units is $\langle r^2\rangle = N u^2$ where $N$ is the number of units in the chain and $u$ is ithe length of each unit. 
 For simplicity, we'll work with $u=1$. 
 
-
 # Unconstrained Polymer Chains
-
 The position of each link of the chain relative to the previous link can be described with angles $\theta\in[0,2\pi]$ and $\phi\in[0,pi]$ (think of $\theta$ as describing the direction in the XY plane and $\phi$ as describing the direction in the plane uniquely defined by the points $(0,0,0)$, $(x, y, 0)$, and $(x, y, z)$). In this case, $\phi$ need only cover $\pi$ radians. 
 
 Without loss of generality, we can assume that the chain starts at the origin. 
@@ -29,36 +24,136 @@ $$\begin{array}{rcl} x &=& \cos(\theta)\sin(\phi)\\
 y &=& \sin(\theta)\sin(\phi)\\
 z &=& \cos(\phi)\end{array} $$
 
-The distance between the origin and the end of the chain $(x,y,z)$ can be calculated as $\sqrt{x^2 + y^2 + z^2}$. 
-
+The distance between the origin and the end of the chain $(x,y,z)$ can be calculated as $\sqrt{x^2 + y^2 + z^2}$.
 
 ## Single Unconstrained Link Function
-
 Write a function that takes $n$ and returns the distance between the start and end points of a chain. 
 Use vector-based operations to increase the efficiency of your function.
-
+```{r}
+polymer_end_to_end_distance <- function(n) {
+    theta <- runif(n, 0, 2*pi)
+    phi <- runif(n, 0, pi)
+    
+    x <- cos(theta) *sin(phi)
+    y <- sin(theta) * sin(phi)
+    z <- cos(phi)
+    
+    end_x <- sum(x)
+    end_y <- sum(y)
+    end_z <- sum(z)
+    
+    distance <- sqrt(end_x^2 + end_y^2 +end_z^2)
+    return(distance)
+}
+set.seed(25111810)
+polymer_end_to_end_distance(10)
+```
 
 ## Distribution of Unconstrained Links
-
 Simulate 10000 chains and save the distribution of the end-to-end distance.
+```{r}
+set.seed(25111810)
+n_links <- 20
+n_chains <- 10000
 
+distances <- replicate(n_chains, polymer_end_to_end_distance(n_links))
+head(distances)
 
+hist(distances, breaks = 30, probability = TRUE,
+     main = "End-to-End Distance Distribution",
+     xlab = "Distance", col = "hotpink",
+     border = NA) +
+    lines(density(distances))
+```
 
 # Constrained Polymer Chains
 For real polymers, adjacent links don’t have the complete freedom of orientation allowed in the case of the ideal model. 
 We can simulate a simple constrained orientation model by restricting the relative orientation of adjacent links.
 We’ll prevent adjacent links from orienting themselves such that there is an acute angle smaller than, say 45° between them. 
 We can do this by checking the angle between adjacent links after choosing a random orientation and repeatedly choosing the random orientation until that angle is larger than 45°.
+```{r}
+generate_constrained_link <- function(prev_vec, min_angle = pi/4) {
+    cos_min <- cos(min_angle)
+    repeat {
+        theta <- runif(1, 0, 2*pi)
+        phi   <- runif(1, 0, pi)
+        
+        new_vec <- c(
+            cos(theta) * sin(phi),
+            sin(theta) * sin(phi),
+            cos(phi)
+        )
+        
+        if (sum(prev_vec * new_vec) <= cos_min) {
+            return(new_vec)
+        }
+    }
+}
 
-
+polymer_end_to_end_distance_constrained <- function(n, min_angle = pi/4) {
+    theta <- runif(1, 0, 2*pi)
+    phi   <- runif(1, 0, pi)
+    
+    current_vec <- c(
+        cos(theta) * sin(phi),
+        sin(theta) * sin(phi),
+        cos(phi)
+    )
+    pos <- current_vec
+    
+    for (i in 2:n) {
+        new_vec <- generate_constrained_link(current_vec, min_angle)
+        pos <- pos + new_vec
+        current_vec <- new_vec
+    }
+    sqrt(sum(pos^2))
+}
+```
 ## Single Constrained Link Function
-
 Write a function that takes $n$ and returns the distance between the start and end points of a chain. 
 Can you think of a way to use vectorized functions to accomplish this task? Why or why not? 
+No you cannot generate all angles at once, since you do not know whether link i is valid until link i-1 is known. This creates a Markov chain structure; each state depends on the previous one. So the only correct and efficient implementation is a for loop.
+```{r}
+polymer_end_to_end_distance_constrained <- function(n, min_angle = pi/4) {
+    cos_min <- cos(min_angle)
 
+    theta <- runif(1, 0, 2*pi)
+    phi   <- runif(1, 0, pi)
+    
+    current_vec <- c(
+        cos(theta) * sin(phi),
+        sin(theta) * sin(phi),
+        cos(phi)
+    )
+    
+    pos <- current_vec
+    for (i in 2:n) {
+        repeat {
+            theta <- runif(1, 0, 2*pi)
+            phi   <- runif(1, 0, pi)
+            
+            new_vec <- c(
+                cos(theta) * sin(phi),
+                sin(theta) * sin(phi),
+                cos(phi)
+            )
+            
+            if (sum(current_vec * new_vec) <= cos_min) {
+                break
+            }
+        }
+        pos <- pos + new_vec
+        current_vec <- new_vec
+    }
+    
+    sqrt(sum(pos^2))
+}
+```
 ## Distribution of Constrained Links
-
 Simulate 10000 chains and save the distribution of the end-to-end distance.
 Plot the density of the unconstrained links and the density of constrained links on the same plot -- how much has the distribution changed?
+```{r}
 
+
+```
 
