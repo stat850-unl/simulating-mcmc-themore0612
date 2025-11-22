@@ -156,8 +156,6 @@ for (i in 1:n_sims) {
   constrained_dist[i]   <- constrained_model(n_chain)
 }
 
-library(ggplot2)
-
 df <- data.frame(
   distance = c(unconstrained_dist, constrained_dist),
   type = rep(c("Unconstrained", "Constrained"),
