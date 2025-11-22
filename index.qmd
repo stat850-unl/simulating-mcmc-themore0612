@@ -54,7 +54,7 @@ for (i in 1:n_chains){
   distances[i] <- single_unconstrained(n)
 }
 distance_dataframe <- data.frame(distances)
-distance_dataframe
+#distance_dataframe
 
 library(ggplot2)
 ggplot(distance_dataframe, aes(distances)) +
@@ -170,4 +170,4 @@ ggplot(df, aes(distance, color = type)) +
        x = "End-to-End Distance",
        y = "Density")
 ```
-
+The constrained chains show a clear shift toward larger end-to-end distances because preventing bends under 45° makes the polymer significantly stiffer. As a result, the distribution becomes narrower and shifted to the right, with far fewer short, collapsed configurations compared to the unconstrained model.
