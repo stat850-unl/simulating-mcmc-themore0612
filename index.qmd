@@ -30,130 +30,56 @@ The distance between the origin and the end of the chain $(x,y,z)$ can be calcul
 Write a function that takes $n$ and returns the distance between the start and end points of a chain. 
 Use vector-based operations to increase the efficiency of your function.
 ```{r}
-polymer_end_to_end_distance <- function(n) {
-    theta <- runif(n, 0, 2*pi)
-    phi <- runif(n, 0, pi)
-    
-    x <- cos(theta) *sin(phi)
-    y <- sin(theta) * sin(phi)
-    z <- cos(phi)
-    
-    end_x <- sum(x)
-    end_y <- sum(y)
-    end_z <- sum(z)
-    
-    distance <- sqrt(end_x^2 + end_y^2 +end_z^2)
-    return(distance)
+single_unconstrained <- function(n) {
+  theta <- runif(n, 0, 2*pi)
+  phi <- runif(n, 0, pi)
+  
+  x = cos(theta) * sin(phi)
+  y = sin(theta) * sin(phi)
+  z = cos(phi)
+  
+  X <- sum(x)
+  Y <- sum(y)
+  Z <- sum(z)
+  
+  sqrt(X^2 + Y^2 + Z^2)
 }
-set.seed(25111810)
-polymer_end_to_end_distance(10)
-```
 
+single_unconstrained(50)
+```
 ## Distribution of Unconstrained Links
 Simulate 10000 chains and save the distribution of the end-to-end distance.
 ```{r}
-set.seed(25111810)
-n_links <- 20
+set.seed(25112216)
+
 n_chains <- 10000
+distances <- numeric(n_chains) #An empty vector with 10k entries
 
-distances <- replicate(n_chains, polymer_end_to_end_distance(n_links))
-head(distances)
+for (i in 1:n_chains){
+  n <- sample(1:1000,1)
+  distances[i] <- single_unconstrained(n)
+}
 
-hist(distances, breaks = 30, probability = TRUE,
-     main = "End-to-End Distance Distribution",
-     xlab = "Distance", col = "hotpink",
-     border = NA) +
-    lines(density(distances))
+
+library(ggplot2)
+ggplot(data.frame(distance = distances), aes(distance)) +
+  geom_histogram(bins = 50, color = "white", fill = "hotpink") +
+  labs(title = "Distribution of End-to-End Distance for Unconstrained Chains")
+
 ```
-
 # Constrained Polymer Chains
 For real polymers, adjacent links don’t have the complete freedom of orientation allowed in the case of the ideal model. 
 We can simulate a simple constrained orientation model by restricting the relative orientation of adjacent links.
 We’ll prevent adjacent links from orienting themselves such that there is an acute angle smaller than, say 45° between them. 
 We can do this by checking the angle between adjacent links after choosing a random orientation and repeatedly choosing the random orientation until that angle is larger than 45°.
-```{r}
-generate_constrained_link <- function(prev_vec, min_angle = pi/4) {
-    cos_min <- cos(min_angle)
-    repeat {
-        theta <- runif(1, 0, 2*pi)
-        phi   <- runif(1, 0, pi)
-        
-        new_vec <- c(
-            cos(theta) * sin(phi),
-            sin(theta) * sin(phi),
-            cos(phi)
-        )
-        
-        if (sum(prev_vec * new_vec) <= cos_min) {
-            return(new_vec)
-        }
-    }
-}
 
-polymer_end_to_end_distance_constrained <- function(n, min_angle = pi/4) {
-    theta <- runif(1, 0, 2*pi)
-    phi   <- runif(1, 0, pi)
-    
-    current_vec <- c(
-        cos(theta) * sin(phi),
-        sin(theta) * sin(phi),
-        cos(phi)
-    )
-    pos <- current_vec
-    
-    for (i in 2:n) {
-        new_vec <- generate_constrained_link(current_vec, min_angle)
-        pos <- pos + new_vec
-        current_vec <- new_vec
-    }
-    sqrt(sum(pos^2))
-}
-```
 ## Single Constrained Link Function
 Write a function that takes $n$ and returns the distance between the start and end points of a chain. 
 Can you think of a way to use vectorized functions to accomplish this task? Why or why not? 
 No you cannot generate all angles at once, since you do not know whether link i is valid until link i-1 is known. This creates a Markov chain structure; each state depends on the previous one. So the only correct and efficient implementation is a for loop.
-```{r}
-polymer_end_to_end_distance_constrained <- function(n, min_angle = pi/4) {
-    cos_min <- cos(min_angle)
 
-    theta <- runif(1, 0, 2*pi)
-    phi   <- runif(1, 0, pi)
-    
-    current_vec <- c(
-        cos(theta) * sin(phi),
-        sin(theta) * sin(phi),
-        cos(phi)
-    )
-    
-    pos <- current_vec
-    for (i in 2:n) {
-        repeat {
-            theta <- runif(1, 0, 2*pi)
-            phi   <- runif(1, 0, pi)
-            
-            new_vec <- c(
-                cos(theta) * sin(phi),
-                sin(theta) * sin(phi),
-                cos(phi)
-            )
-            
-            if (sum(current_vec * new_vec) <= cos_min) {
-                break
-            }
-        }
-        pos <- pos + new_vec
-        current_vec <- new_vec
-    }
-    
-    sqrt(sum(pos^2))
-}
-```
 ## Distribution of Constrained Links
 Simulate 10000 chains and save the distribution of the end-to-end distance.
 Plot the density of the unconstrained links and the density of constrained links on the same plot -- how much has the distribution changed?
-```{r}
 
-
-```
 
