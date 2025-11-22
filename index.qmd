@@ -38,20 +38,14 @@ single_unconstrained <- function(n) {
   y = sin(theta) * sin(phi)
   z = cos(phi)
   
-  X <- sum(x)
-  Y <- sum(y)
-  Z <- sum(z)
-  
-  sqrt(X^2 + Y^2 + Z^2)
+  sqrt(sum(x)^2 + sum(y)^2 + sum(z)^2)
 }
-
 single_unconstrained(50)
 ```
 ## Distribution of Unconstrained Links
 Simulate 10000 chains and save the distribution of the end-to-end distance.
 ```{r}
 set.seed(25112216)
-
 n_chains <- 10000
 distances <- numeric(n_chains) #An empty vector with 10k entries
 
@@ -59,27 +53,123 @@ for (i in 1:n_chains){
   n <- sample(1:1000,1)
   distances[i] <- single_unconstrained(n)
 }
-
+distance_dataframe <- data.frame(distances)
+distance_dataframe
 
 library(ggplot2)
-ggplot(data.frame(distance = distances), aes(distance)) +
+ggplot(distance_dataframe, aes(distances)) +
   geom_histogram(bins = 50, color = "white", fill = "hotpink") +
   labs(title = "Distribution of End-to-End Distance for Unconstrained Chains")
-
 ```
 # Constrained Polymer Chains
 For real polymers, adjacent links don’t have the complete freedom of orientation allowed in the case of the ideal model. 
 We can simulate a simple constrained orientation model by restricting the relative orientation of adjacent links.
 We’ll prevent adjacent links from orienting themselves such that there is an acute angle smaller than, say 45° between them. 
 We can do this by checking the angle between adjacent links after choosing a random orientation and repeatedly choosing the random orientation until that angle is larger than 45°.
-
+```{r}
+constrained_model <- function(n) {
+  threshold <- cos(pi/4)          
+  
+  make_link <- function() {
+    theta <- runif(1, 0, 2*pi)
+    phi   <- runif(1, 0, pi)
+    c(cos(theta)*sin(phi),
+      sin(theta)*sin(phi),
+      cos(phi))
+  }
+  
+  # This makes the first link
+  prev <- make_link()
+  X <- prev[1]
+  Y <- prev[2]
+  Z <- prev[3]
+  
+  for (i in 2:n) {
+    repeat {
+      new <- make_link()
+      
+      if (sum(prev * new) <= threshold) {
+        X <- X + new[1]
+        Y <- Y + new[2]
+        Z <- Z + new[3]
+        prev <- new
+        break
+      }
+    }
+  }
+  
+  sqrt(X^2 + Y^2 + Z^2)
+}
+constrained_model(50)
+```
 ## Single Constrained Link Function
 Write a function that takes $n$ and returns the distance between the start and end points of a chain. 
 Can you think of a way to use vectorized functions to accomplish this task? Why or why not? 
 No you cannot generate all angles at once, since you do not know whether link i is valid until link i-1 is known. This creates a Markov chain structure; each state depends on the previous one. So the only correct and efficient implementation is a for loop.
+```{r}
+constrained_model <- function(n) {
+  
+  threshold <- cos(pi/4)   
+  
+  make_link <- function() {
+    theta <- runif(1, 0, 2*pi)
+    phi   <- runif(1, 0, pi)
+    c(cos(theta)*sin(phi),
+      sin(theta)*sin(phi),
+      cos(phi))
+  }
+  
+  prev <- make_link()
+  X <- prev[1]; Y <- prev[2]; Z <- prev[3]
+  
+  for (i in 2:n) {
+    repeat {
+      new <- make_link()
+      
+      if (sum(prev * new) <= threshold) {
+        X <- X + new[1]
+        Y <- Y + new[2]
+        Z <- Z + new[3]
+        prev <- new
+        break
+      }
+    }
+  }
+  
+  sqrt(X^2 + Y^2 + Z^2)
+}
 
+```
 ## Distribution of Constrained Links
 Simulate 10000 chains and save the distribution of the end-to-end distance.
 Plot the density of the unconstrained links and the density of constrained links on the same plot -- how much has the distribution changed?
+```{r}
+set.seed(25112217)
+n_sims   <- 10000
+n_chain  <- 50
 
+unconstrained_dist <- numeric(n_sims)
+constrained_dist   <- numeric(n_sims)
+
+for (i in 1:n_sims) {
+  unconstrained_dist[i] <- single_unconstrained(n_chain)
+  constrained_dist[i]   <- constrained_model(n_chain)
+}
+
+library(ggplot2)
+
+df <- data.frame(
+  distance = c(unconstrained_dist, constrained_dist),
+  type = rep(c("Unconstrained", "Constrained"),
+             each = n_sims)
+)
+
+ggplot(df, aes(distance, color = type)) +
+  geom_density(size = 1) +
+  theme_minimal(base_size = 14) +
+  labs(title = "End-to-End Distance Distributions",
+       subtitle = "Unconstrained vs Constrained (45° minimum angle)",
+       x = "End-to-End Distance",
+       y = "Density")
+```
 
